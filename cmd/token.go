@@ -196,16 +196,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-	// fmt.Println("response Status:", resp.Status)
-
-	// fmt.Println(resp.Header.Get("X-Subject-Token")) // the token
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// os.Stdout.Write(body)
-	// fmt.Println()
 
 	var obj Token_wraper
 	err = json.Unmarshal([]byte(body), &obj)
