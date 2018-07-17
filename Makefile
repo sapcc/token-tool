@@ -4,7 +4,7 @@ DEP := $(BIN_DIR)/dep
 .PHONY: all dep clean
 
 all: dep
-	go build -o bin/token cmd/token.go
+	go build -o bin/run cmd/token.go
 
 dep:	$(DEP)
 	dep ensure
