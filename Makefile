@@ -11,7 +11,6 @@ dep:	$(DEP)
 	
 $(DEP):
 	go get -u github.com/golang/dep/cmd/dep
-	dep init
 	
 clean:
 	rm -rf bin/*
