@@ -74,7 +74,7 @@ type Domain_t struct {
 }
 
 func main() {
-	var user_domain, project, project_domain, username, keystone_endpoint, format string
+	var user_domain, project, project_domain, username, keystone_endpoint, password, format string
 
 	// handling args/flags
 	app := cli.NewApp()
@@ -107,6 +107,13 @@ func main() {
 			EnvVar:      "USER",
 		},
 		cli.StringFlag{
+			Name: "pw",
+			// Value:       "",
+			Usage:       "Password",
+			Destination: &password,
+			EnvVar:      "PASSWORD",
+		},
+		cli.StringFlag{
 			Name:        "e",
 			Value:       "https://identity-3.eu-de-1.cloud.sap/v3",
 			Usage:       "Keystone endpoint",
@@ -124,6 +131,7 @@ func main() {
 		fmt.Println("usage: token [args]")
 		fmt.Println("-e KEYSTONE_ENDPOINT   (Default: https://identity-3.eu-de-1.cloud.sap/v3)")
 		fmt.Println("-u USERNAME            (Default: $USER)")
+		fmt.Println("-pw PASSWORD            (Default: $PASSWORD)")
 		fmt.Println("-d USER_DOMAIN_NAME    (Default: monsoon3)")
 		fmt.Println("-p PROJECT             (Default: fabian)")
 		fmt.Println("-q PROJECT_DOMAIN_NAME (Default: monsoon3)")
@@ -142,16 +150,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	password, err := exec.Command("security", "find-generic-password", "-a", username, "-s", "openstack", "-w").Output()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if last := len(password) - 1; last >= 0 && password[last] == '\n' {
-		password = password[:last]
-	}
-	if len(password) < 2 {
-		fmt.Printf("Enter password for user %s: ", username)
-		fmt.Scanln(&password)
+	if password == "" { // If password is not provided from CLI or envvar, try to find and set
+
+		passwordOutput, err := exec.Command("security", "find-generic-password", "-a", username, "-s", "openstack", "-w").Output()
+		if err != nil {
+			log.Printf("find-generic-passwor error: %v", err) // Error could occur if it is not found, error content should be checked
+		}
+		if last := len(passwordOutput) - 1; last >= 0 && passwordOutput[last] == '\n' {
+			password = string(passwordOutput[:last])
+		}
+		if len(passwordOutput) < 2 {
+			fmt.Printf("Enter password for user %s: ", username)
+			fmt.Scanln(&password)
+		}
 	}
 
 	payload := AuthToken{
