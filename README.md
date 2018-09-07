@@ -8,18 +8,21 @@ Tool for Keystone authentication tokens.
 
 ```
 token-tool token -h
-Get token from Keystone and print
+Retrieves token from Keystone
 
 Usage:
   token-tool token [flags]
 
 Flags:
-      --format string                text, json, curlrc (Default: text)
+      --domain-id string             Domain ID
+      --domain-name string           Domain Name
   -h, --help                         help for token
-      --keystone-endpoint string     Keystone endpoint
       --password string              Password
-      --project string               Project
       --project-domain-name string   Project Domain Name
-      --user string                  Username
-      --user-domain-name string      User Domain Name
+      --project-id string            Project ID
+      --project-name string          Project Name
+      --region string                Region
+      --tenant-id string             Tenant ID
+      --user-id string               User ID
+      --username string              Username
 ```

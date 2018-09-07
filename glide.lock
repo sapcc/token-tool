@@ -1,10 +1,19 @@
 hash: 81bbd936fb623c435ea88b1a5d4d80f9c01d624da11ca017a995636752dde898
-updated: 2018-09-06T11:13:04.743599+02:00
+updated: 2018-09-07T10:46:12.461582+02:00
 imports:
 - name: github.com/fsnotify/fsnotify
   version: ccc981bf80385c528a65fbfdd49bf2d8da22aa23
+- name: github.com/gophercloud/gophercloud
+  version: 3a5f2b6741320bd44cff57dcfd03400d1ef905e7
+  subpackages:
+  - openstack
+  - openstack/identity/v2/tenants
+  - openstack/identity/v2/tokens
+  - openstack/identity/v3/tokens
+  - openstack/utils
+  - pagination
 - name: github.com/hashicorp/hcl
-  version: 8cb6e5b959231cc1119e43259c4a608f9c51a241
+  version: 65a6292f0157eff210d03ed1bf6c59b190b8b906
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -41,10 +50,12 @@ imports:
   version: 907c19d40d9a6c9bb55f040ff4ae45271a4754b9
 - name: github.com/urfave/cli
   version: cfb38830724cc34fedffe9a2a29fb54fa9169cd1
-- name: golang.org/x/sys/unix
-  version: ebe1bf3edb3325c393447059974de898d5133eb8
+- name: golang.org/x/sys
+  version: 8cf3aee429924738c56c34bb819c4ea8273fc434
+  subpackages:
+  - unix
 - name: golang.org/x/text
-  version: 6e3c4e7365ddcc329f090f96e4348398f6310088
+  version: 4ae1256249243a4eb350a9a372e126557f2aa346
   subpackages:
   - transform
   - unicode/norm

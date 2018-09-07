@@ -1,31 +1,37 @@
 package command
 
 import (
-	"github.com/sapcc/token-tool/pkg/legacy"
+	"fmt"
+	"github.com/sapcc/token-tool/pkg/auth"
 	"github.com/spf13/cobra"
 	"log"
 )
+
+var input auth.TokenInput
+var provider auth.TokenProvider
 
 func init() {
 
 	var tokenCmd = &cobra.Command{
 		Use:   "token",
-		Short: "Retrieves token from Keystone and print",
+		Short: "Retrieves token from Keystone",
 		Long:  ``,
 		Run:   Token,
 	}
 
-	var keystoneEndpoint, user, password, userDomainName, project, projectDomainName, format string
+	provider = auth.OpenStackTokenProvider{}
 
-	//TODO bind to environment variables via viper
-	//TODO mark required flags
-	tokenCmd.PersistentFlags().StringVarP(&keystoneEndpoint, "keystone-endpoint", "", "", "Keystone endpoint")
-	tokenCmd.PersistentFlags().StringVarP(&user, "user", "", "", "Username")
-	tokenCmd.PersistentFlags().StringVarP(&password, "password", "", "", "Password")
-	tokenCmd.PersistentFlags().StringVarP(&userDomainName, "user-domain-name", "", "", "User Domain Name")
-	tokenCmd.PersistentFlags().StringVarP(&project, "project", "", "", "Project")
-	tokenCmd.PersistentFlags().StringVarP(&projectDomainName, "project-domain-name", "", "", "Project Domain Name")
-	tokenCmd.PersistentFlags().StringVarP(&format, "format", "", "", "text, json, curlrc (Default: text)")
+	tokenCmd.PersistentFlags().StringVarP(&input.Region, "region", "", "", "Region")
+	tokenCmd.PersistentFlags().StringVarP(&input.UserID, "user-id", "", "", "User ID")
+	tokenCmd.PersistentFlags().StringVarP(&input.Username, "username", "", "", "Username")
+	tokenCmd.PersistentFlags().StringVarP(&input.DomainID, "domain-id", "", "", "Domain ID")
+	tokenCmd.PersistentFlags().StringVarP(&input.DomainName, "domain-name", "", "", "Domain Name")
+	tokenCmd.PersistentFlags().StringVarP(&input.Password, "password", "", "", "Password")
+
+	tokenCmd.PersistentFlags().StringVarP(&input.ProjectID, "project-id", "", "", "Project ID")
+	tokenCmd.PersistentFlags().StringVarP(&input.TenantID, "tenant-id", "", "", "Tenant ID")
+	tokenCmd.PersistentFlags().StringVarP(&input.ProjectName, "project-name", "", "", "Project Name")
+	tokenCmd.PersistentFlags().StringVarP(&input.ProjectDomainName, "project-domain-name", "", "", "Project Domain Name")
 
 	rootCmd.AddCommand(tokenCmd)
 
@@ -33,36 +39,15 @@ func init() {
 
 func Token(cmd *cobra.Command, args []string) {
 
-	keystoneEndpoint, err := cmd.Flags().GetString("keystone-endpoint")
-	if err != nil {
-		log.Fatal(err)
-	}
-	user, err := cmd.Flags().GetString("user")
-	if err != nil {
-		log.Fatal(err)
-	}
-	password, err := cmd.Flags().GetString("password")
-	if err != nil {
-		log.Fatal(err)
-	}
-	userDomainName, err := cmd.Flags().GetString("user-domain-name")
-	if err != nil {
-		log.Fatal(err)
-	}
-	project, err := cmd.Flags().GetString("project")
+	err := input.Validate()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	projectDomainName, err := cmd.Flags().GetString("project-domain-name")
+	token, err := provider.Get(input)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	format, err := cmd.Flags().GetString("format")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	legacy.Get(userDomainName, project, projectDomainName, user, keystoneEndpoint, password, format)
+	fmt.Println(token)
 }
