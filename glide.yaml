@@ -1,0 +1,10 @@
+package: github.com/sapcc/token-tool
+import:
+- package: github.com/mitchellh/go-homedir
+  version: v1.0.0
+- package: github.com/spf13/cobra
+  version: v0.0.3
+- package: github.com/spf13/viper
+  version: v1.1.0
+- package: github.com/urfave/cli
+  version: v1.20.0
