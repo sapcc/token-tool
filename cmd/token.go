@@ -147,7 +147,12 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		return tokenCommand(c.String("format"), authOpts)
+		switch format := c.String("format"); format {
+		case "text", "json", "curlrc":
+			return tokenCommand(c.String("format"), authOpts)
+		default:
+			return fmt.Errorf("Unknown format given: %s", format)
+		}
 	}
 	app.Commands = []cli.Command{
 		{
