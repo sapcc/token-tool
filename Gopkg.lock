@@ -2,14 +2,111 @@
 
 
 [[projects]]
+  digest = "1:675c7e2e645d40363350159cfe1f719f61ce353a3859db939ca686d98aa85f16"
+  name = "github.com/danieljoos/wincred"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b892d337201d1400370ebf4fa919941c9ea222ee"
+  version = "v1.0.2"
+
+[[projects]]
+  digest = "1:1f9fae0d86e56888d2e00c231d2a3958c321856ae585cff461b64929c66ce595"
+  name = "github.com/godbus/dbus"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "735b987ea3fc98b200348de1656e97f656ed4873"
+  version = "v5.0.2"
+
+[[projects]]
+  digest = "1:54ef28a48fa2d032b67da95b11f864bf40af351b778db76f15591ca7382c1553"
+  name = "github.com/gophercloud/gophercloud"
+  packages = [
+    ".",
+    "openstack",
+    "openstack/identity/v2/tenants",
+    "openstack/identity/v2/tokens",
+    "openstack/identity/v3/tokens",
+    "openstack/utils",
+    "pagination",
+  ]
+  pruneopts = "UT"
+  revision = "0398b0cd16bfffade0883973c745180adbbe8918"
+  version = "v0.3.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:4a14c92687d36a3875744de509bae52334a00ba487eb285b8a57645ec46acc7e"
+  name = "github.com/gophercloud/utils"
+  packages = ["openstack/clientconfig"]
+  pruneopts = "UT"
+  revision = "25f1b77b8c0367b43939dbb20f5dd12e3c9b0053"
+
+[[projects]]
+  branch = "master"
+  digest = "1:0778dc7fce1b4669a8bfa7ae506ec1f595b6ab0f8989c1c0d22a8ca1144e9972"
+  name = "github.com/howeyc/gopass"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "bf9dde6d0d2c004a008c27aaee91170c786f6db8"
+
+[[projects]]
+  digest = "1:b24d38b282bacf9791408a080f606370efa3d364e4b5fd9ba0f7b87786d3b679"
   name = "github.com/urfave/cli"
   packages = ["."]
+  pruneopts = "UT"
   revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
   version = "v1.20.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:c87e830da7bafe1fdafaaf0e470886227ac06a069a6c21248408f81b431b8c22"
+  name = "github.com/zalando/go-keyring"
+  packages = [
+    ".",
+    "secret_service",
+  ]
+  pruneopts = "UT"
+  revision = "76787ff3b3bd62a37a564a04f1ed96233cdc0ead"
+
+[[projects]]
+  branch = "master"
+  digest = "1:bbe51412d9915d64ffaa96b51d409e070665efc5194fcf145c4a27d4133107a4"
+  name = "golang.org/x/crypto"
+  packages = ["ssh/terminal"]
+  pruneopts = "UT"
+  revision = "60c769a6c58655dab1b9adac0d58967dd517cfba"
+
+[[projects]]
+  branch = "master"
+  digest = "1:c5b5d55096b762e29d0b887ce73932d06ddcf9def4285f1abd09f801176878ec"
+  name = "golang.org/x/sys"
+  packages = [
+    "unix",
+    "windows",
+  ]
+  pruneopts = "UT"
+  revision = "c7b8b68b14567162c6602a7c5659ee0f26417c18"
+
+[[projects]]
+  digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
+  version = "v2.2.2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "df4a79a3008603763e1d51475bb94e1290af5af71be4761ef9369093fcce7009"
+  input-imports = [
+    "github.com/gophercloud/gophercloud",
+    "github.com/gophercloud/gophercloud/openstack",
+    "github.com/gophercloud/gophercloud/openstack/identity/v3/tokens",
+    "github.com/gophercloud/utils/openstack/clientconfig",
+    "github.com/howeyc/gopass",
+    "github.com/urfave/cli",
+    "github.com/zalando/go-keyring",
+    "golang.org/x/crypto/ssh/terminal",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

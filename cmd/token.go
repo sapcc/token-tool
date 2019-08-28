@@ -1,233 +1,240 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
+	"syscall"
 
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack"
+	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
+	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/howeyc/gopass"
 	"github.com/urfave/cli"
+	"github.com/zalando/go-keyring"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
-type AuthToken struct {
-	Auth `json:"auth"`
-}
-type Auth struct {
-	Identity `json:"identity"`
-	Scope    `json:"scope"`
-}
-type Identity struct {
-	Methods  []string `json:"methods"`
-	Password `json:"password"`
-}
-type Password struct {
-	User `json:"user"`
-}
-type User struct {
-	Name     string `json:"name"`
-	Domain   `json:"domain"`
-	Password string `json:"password"`
-}
-type Project struct {
-	Name   string `json:"name"`
-	Domain `json:"domain"`
-}
-type Domain struct {
-	Name string `json:"name"`
-}
-type Scope struct {
-	Project `json:"project"`
-}
-
-type Token_wraper struct {
-	Token Token `json:"token"`
-}
-type Token struct {
-	Is_domain        bool      `json:"is_domain"`
-	Methods          []string  `json:"methods"`
-	Roles            []Role    `json:"roles"`
-	Is_admin_project bool      `json:"is_admin_project"`
-	Project          Project_t `json:"project"`
-	Expires_at       string    `json:"expires_at"`
-	User             Project_t `json:"user"`
-	Audit_ids        []string  `json:"audit_ids"`
-	Issued_at        string    `json:"issued_at"`
-}
-type Role struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-}
-type Project_t struct {
-	Domain Domain_t `json:"domain"`
-	Id     string   `json:"id"`
-	Name   string   `json:"name"`
-}
-type Domain_t struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-}
+var version string = "HEAD"
 
 func main() {
-	var user_domain, project, project_domain, username, keystone_endpoint, format string
-
+	var authInfo clientconfig.AuthInfo
 	// handling args/flags
 	app := cli.NewApp()
-	app.HideVersion = true
+	app.Version = version
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:        "d",
-			Value:       "monsoon3",
+			Name:        "username",
+			Usage:       "Username. Default: $USER",
+			EnvVar:      "OS_USERNAME",
+			Destination: &authInfo.Username,
+		},
+		cli.StringFlag{
+			Name:        "user-domain-name",
 			Usage:       "User domain name",
-			Destination: &user_domain,
+			EnvVar:      "OS_USER_DOMAIN_NAME",
+			Destination: &authInfo.UserDomainName,
 		},
 		cli.StringFlag{
-			Name:        "p",
-			Value:       "consulting_dev",
+			Name:        "user-domain-id",
+			Usage:       "User domain ID",
+			EnvVar:      "OS_USER_DOMAIN_ID",
+			Destination: &authInfo.UserDomainID,
+		},
+		cli.StringFlag{
+			Name:        "user-id",
+			Usage:       "User ID",
+			EnvVar:      "OS_USER_ID",
+			Destination: &authInfo.UserID,
+		},
+		cli.StringFlag{
+			Name:        "project-name",
 			Usage:       "Project name",
-			Destination: &project,
+			EnvVar:      "OS_PROJECT_NAME",
+			Destination: &authInfo.ProjectName,
 		},
 		cli.StringFlag{
-			Name:        "q",
-			Value:       "monsoon3",
+			Name:        "project-domain-name",
 			Usage:       "Project domain name",
-			Destination: &project_domain,
+			EnvVar:      "OS_PROJECT_DOMAIN_NAME",
+			Destination: &authInfo.ProjectDomainName,
 		},
 		cli.StringFlag{
-			Name: "u",
-			// Value:       "",
-			Usage:       "Username",
-			Destination: &username,
-			EnvVar:      "USER",
+			Name:        "project-domain-id",
+			Usage:       "Project domain ID",
+			EnvVar:      "OS_PROJECT_DOMAIN_ID",
+			Destination: &authInfo.ProjectDomainName,
 		},
 		cli.StringFlag{
-			Name:        "e",
-			Value:       "https://identity-3.eu-de-1.cloud.sap/v3",
-			Usage:       "Keystone endpoint",
-			Destination: &keystone_endpoint,
+			Name:        "project-id",
+			Usage:       "Project ID",
+			EnvVar:      "OS_PROJECT_ID, OS_TENANT_ID",
+			Destination: &authInfo.ProjectID,
 		},
 		cli.StringFlag{
-			Name:        "f",
-			Value:       "text",
-			Usage:       "Format: text, json, curlrc",
-			Destination: &format,
+			Name:        "auth-url",
+			Usage:       "keystone/identity endpoint URL",
+			EnvVar:      "OS_AUTH_URL",
+			Destination: &authInfo.AuthURL,
 		},
-	}
-
-	cli.HelpPrinter = func(w io.Writer, templ string, data interface{}) {
-		fmt.Println("usage: token [args]")
-		fmt.Println("-e KEYSTONE_ENDPOINT   (Default: https://identity-3.eu-de-1.cloud.sap/v3)")
-		fmt.Println("-u USERNAME            (Default: $USER)")
-		fmt.Println("-d USER_DOMAIN_NAME    (Default: monsoon3)")
-		fmt.Println("-p PROJECT             (Default: fabian)")
-		fmt.Println("-q PROJECT_DOMAIN_NAME (Default: monsoon3)")
-		fmt.Println("-f FORMAT              text, json, curlrc (Default: text)")
-		fmt.Println("-h HELP                displays this help prompt")
-
-		os.Exit(0)
-	}
-	app.Action = func(c *cli.Context) error {
-		return nil
+		cli.StringFlag{
+			Name:        "application-credential-id",
+			Usage:       "Application Credential ID",
+			EnvVar:      "OS_APPLICATION_CREDENTIAL_ID",
+			Destination: &authInfo.ApplicationCredentialID,
+		},
+		cli.StringFlag{
+			Name:        "application-credential-name",
+			Usage:       "Application Credential Name",
+			EnvVar:      "OS_APPLICATION_CREDENTIAL_NAME",
+			Destination: &authInfo.ApplicationCredentialName,
+		},
+		cli.StringFlag{
+			Name:  "format, f",
+			Value: "text",
+			Usage: "Format: text, json, curlrc",
+		},
 	}
 
 	sort.Sort(cli.FlagsByName(app.Flags))
+
+	var authOpts *gophercloud.AuthOptions
+	app.Before = func(*cli.Context) (err error) {
+		if authOpts, err = clientconfig.AuthOptions(&clientconfig.ClientOpts{AuthInfo: &authInfo}); err != nil {
+			return
+		}
+		//default to system user if no user user variable set
+		if authOpts.Username == "" && authOpts.UserID == "" && authOpts.ApplicationCredentialID == "" && authOpts.ApplicationCredentialName == "" {
+			authOpts.Username = os.Getenv("USER")
+		}
+		//if no domain information is given for username we default it top the scope domain name/id
+		if authOpts.Username != "" && authOpts.DomainName == "" && authOpts.DomainID == "" && authOpts.Scope != nil {
+			if authOpts.Scope.DomainID != "" {
+				authOpts.DomainID = authOpts.Scope.DomainID
+			} else {
+				authOpts.DomainName = authOpts.Scope.DomainName
+			}
+		}
+		//try to get password from keyring if not set via env
+		if authOpts.Username != "" && authOpts.Password == "" && authOpts.ApplicationCredentialSecret == "" {
+			if pw, err := keyring.Get("openstack", authOpts.Username); err == nil {
+				log.Println("Using password from keyring")
+				authOpts.Password = pw
+			} else {
+				if terminal.IsTerminal(int(os.Stdin.Fd())) {
+					if password, err := gopass.GetPasswdPrompt("Password: ", true, os.Stdin, os.Stderr); err == nil {
+						authOpts.Password = string(password)
+					}
+				} else {
+					if in, err := ioutil.ReadAll(os.Stdin); err == nil && len(in) > 0 {
+						log.Println("Password read from stdin")
+						authOpts.Password = strings.TrimRight(string(in), "\r\n")
+					}
+				}
+			}
+		}
+
+		return
+
+	}
+
+	app.Action = func(c *cli.Context) error {
+		return tokenCommand(c.String("format"), authOpts)
+	}
+	app.Commands = []cli.Command{
+		{
+			Name:  "curl",
+			Usage: "use curl with openstack credentials",
+			Action: func(c *cli.Context) error {
+				return curlCommand(c.Args(), authOpts)
+			},
+		},
+	}
+
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	password, err := exec.Command("security", "find-generic-password", "-a", username, "-s", "openstack", "-w").Output()
+}
+
+func tokenCommand(format string, authOptions *gophercloud.AuthOptions) error {
+	providerClient, err := openstack.AuthenticatedClient(*authOptions)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Failed to authenticate: %s", err)
 	}
-	if last := len(password) - 1; last >= 0 && password[last] == '\n' {
-		password = password[:last]
-	}
-	if len(password) < 2 {
-		fmt.Printf("Enter password for user %s: ", username)
-		fmt.Scanln(&password)
+	tokenResponse, ok := providerClient.GetAuthResult().(tokens.CreateResult)
+	if !ok {
+		return errors.New("Auth response is not a v3 response")
 	}
 
-	payload := AuthToken{
-		Auth: Auth{
-			Identity: Identity{
-				Methods: []string{"password"},
-				Password: Password{
-					User: User{
-						Name: username,
-						Domain: Domain{
-							Name: user_domain,
-						},
-						Password: string(password),
-					},
-				},
-			},
-			Scope: Scope{
-				Project: Project{
-					Name: project,
-					Domain: Domain{
-						Name: project_domain,
-					},
-				},
-			},
-		},
-	}
-	payloadJson, err := json.Marshal(payload)
-	if err != nil {
-		log.Fatal(err)
+	switch format {
+	case "curlrc":
+		fmt.Printf("header \"X-Auth-Token: %s\"\n", providerClient.Token())
+		fmt.Printf("header \"Content-Type: application/json\"\n")
+	case "json":
+		//add the token from the heder to the nested json as token_id
+		b := tokenResponse.Body.(map[string]interface{})
+		b["token_id"] = providerClient.Token()
+		e := json.NewEncoder(os.Stdout)
+		e.SetIndent("", "  ")
+		return e.Encode(b)
+	default:
+		fmt.Println(providerClient.Token())
 	}
 
-	url := keystone_endpoint + "/auth/tokens?nocatalog"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadJson))
-	if err != nil {
-		log.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/json")
+	return nil
+}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+func curlCommand(curlArgs []string, authOptions *gophercloud.AuthOptions) error {
+	curlPath, err := exec.LookPath("curl")
 	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("curl command not found in path: %s", err)
 	}
 
-	var obj Token_wraper
-	err = json.Unmarshal([]byte(body), &obj)
+	providerClient, err := openstack.AuthenticatedClient(*authOptions)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Failed to authenticate: %s", err)
+	}
+	tokenResponse, ok := providerClient.GetAuthResult().(tokens.CreateResult)
+	if !ok {
+		return errors.New("Auth response is not a v3 response")
 	}
 
-	// output handling
-	if format == "json" {
-		var prettyJSON bytes.Buffer
-		err := json.Indent(&prettyJSON, body, "", "\t")
-		if err != nil {
-			log.Fatal(err)
+	catalog, err := tokenResponse.ExtractServiceCatalog()
+	if err != nil {
+		return fmt.Errorf("Failed to get catalog from auth response: %s", err)
+	}
+
+	vars := map[string]string{}
+	for _, entry := range catalog.Entries {
+		for _, ep := range entry.Endpoints {
+			vars[strings.ToUpper(entry.Type)+"_"+strings.ToUpper(ep.Interface)] = ep.URL
+			if ep.Interface == "public" {
+				vars[strings.ToUpper(entry.Type)] = ep.URL
+			}
 		}
-		fmt.Println(string(prettyJSON.Bytes()))
-	} else if format == "curlrc" {
-		fmt.Println("header \"X-Auth-Token: ", resp.Header.Get("X-Subject-Token"), "\"")
-		fmt.Println("header \"Content-Type: application/json\"")
-	} else {
-		fmt.Println(resp.Header.Get("X-Subject-Token"))
-		fmt.Println("User:\t\t", obj.Token.User.Id)
-		fmt.Println("Project:\t", obj.Token.Project.Id)
-		fmt.Println("Project domain:\t", obj.Token.Project.Domain.Id)
-		fmt.Print("Roles:\t\t")
-		for _, r := range obj.Token.Roles {
-			fmt.Print(r.Name, ", ")
-		}
-		fmt.Println()
 	}
+	for i, arg := range curlArgs {
+		curlArgs[i] = os.Expand(arg, func(s string) string { return vars[s] })
+	}
+
+	log.Println("curl", strings.Join(curlArgs, " "))
+	curlArgs = append([]string{
+		curlPath,
+		"--header", "X-Auth-Token: " + providerClient.Token(),
+		"--header", "Content-Type: application/json",
+	},
+		curlArgs...)
+
+	return syscall.Exec(curlPath, curlArgs, os.Environ())
+
 }
