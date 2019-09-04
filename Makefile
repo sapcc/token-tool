@@ -1,6 +1,6 @@
 BIN_DIR := $(GOPATH)/bin
 DEP := $(BIN_DIR)/dep
-VERSION:= 0.2.0
+VERSION:= 0.2.1
 
 .PHONY: all dep clean
 

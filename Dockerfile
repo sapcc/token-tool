@@ -13,6 +13,7 @@ RUN go get -u github.com/mitchellh/gox
 WORKDIR /go/src/github.com/sapcc/token-tool
 ADD . .
 ARG VERSION=HEAD
+ENV CGO_ENABLED=0
 RUN gox -ldflags="-s -w -X main.version=$VERSION" -osarch="linux/amd64 darwin/amd64" -output="dist/token_{{.OS}}_{{.Arch}}" github.com/sapcc/token-tool/cmd
 RUN upx dist/token*
 RUN ls -lh dist/
