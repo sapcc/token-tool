@@ -74,6 +74,18 @@ func main() {
 			Destination: &authInfo.ProjectDomainName,
 		},
 		cli.StringFlag{
+			Name:        "domain-name",
+			Usage:       "domain name (domain scope)",
+			EnvVar:      "OS_DOMAIN_NAME",
+			Destination: &authInfo.DomainName,
+		},
+		cli.StringFlag{
+			Name:        "domain-id",
+			Usage:       "domain ID (domain scope)",
+			EnvVar:      "OS_DOMAIN_ID",
+			Destination: &authInfo.ProjectDomainName,
+		},
+		cli.StringFlag{
 			Name:        "project-id",
 			Usage:       "Project ID",
 			EnvVar:      "OS_PROJECT_ID, OS_TENANT_ID",
