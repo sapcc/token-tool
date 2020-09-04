@@ -1,4 +1,5 @@
 FROM golang:1.12.9-buster
+LABEL source_repository="https://github.com/sapcc/token-tool"
 # upx 3.95 if broken on darin so we build from HEAD, once 3.96 is release this can be simplified
 RUN apt-get update \
       && apt-get install -y --no-install-recommends libucl-dev zlib1g-dev\
