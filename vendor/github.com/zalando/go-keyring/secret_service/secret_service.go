@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"errors"
-	"github.com/godbus/dbus"
+	dbus "github.com/godbus/dbus/v5"
 )
 
 const (
@@ -121,7 +121,7 @@ func (s *SecretService) Unlock(collection dbus.ObjectPath) error {
 		unlocked = append(unlocked, c...)
 	}
 
-	if len(unlocked) != 1 || unlocked[0] != collection {
+	if len(unlocked) != 1 || (collection != loginCollectionAlias && unlocked[0] != collection) {
 		return fmt.Errorf("failed to unlock correct collection '%v'", collection)
 	}
 
