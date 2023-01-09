@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -21,7 +21,7 @@ import (
 	"github.com/howeyc/gopass"
 	"github.com/urfave/cli"
 	"github.com/zalando/go-keyring"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 var version string = "HEAD"
@@ -39,7 +39,6 @@ func (ti transportInfo) InjectIfConfigured(provider *gophercloud.ProviderClient)
 	if !ti.IsConfigured() {
 		return nil
 	}
-	fmt.Println("injecting 2FA certs")
 	cert, err := tls.LoadX509KeyPair(ti.cert, ti.key)
 	if err != nil {
 		return fmt.Errorf("failed to load x509 keypair: %w", err)
@@ -187,12 +186,12 @@ func main() {
 				log.Println("Using password from keyring")
 				authOpts.Password = pw
 			} else {
-				if terminal.IsTerminal(int(os.Stdin.Fd())) {
+				if term.IsTerminal(int(os.Stdin.Fd())) {
 					if password, err := gopass.GetPasswdPrompt("Password: ", true, os.Stdin, os.Stderr); err == nil {
 						authOpts.Password = string(password)
 					}
 				} else {
-					if in, err := ioutil.ReadAll(os.Stdin); err == nil && len(in) > 0 {
+					if in, err := io.ReadAll(os.Stdin); err == nil && len(in) > 0 {
 						log.Println("Password read from stdin")
 						authOpts.Password = strings.TrimRight(string(in), "\r\n")
 					}
@@ -209,7 +208,7 @@ func main() {
 		case "text", "json", "curlrc":
 			return tokenCommand(c.String("format"), authOpts, transportInfo)
 		default:
-			return fmt.Errorf("Unknown format given: %s", format)
+			return fmt.Errorf("unknown format given: %s", format)
 		}
 	}
 	app.Commands = []cli.Command{
@@ -232,15 +231,15 @@ func main() {
 func makeProviderClient(authOptions *gophercloud.AuthOptions, transportInfo transportInfo) (*gophercloud.ProviderClient, error) {
 	providerClient, err := openstack.NewClient(authOptions.IdentityEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create OpenStack client: %s", err)
+		return nil, fmt.Errorf("failed to create OpenStack client: %s", err)
 	}
 	err = transportInfo.InjectIfConfigured(providerClient)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to inject 2FA certs into OpenStack client: %w", err)
+		return nil, fmt.Errorf("failed to inject 2FA certs into OpenStack client: %w", err)
 	}
 	err = openstack.Authenticate(providerClient, *authOptions)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to authenticate: %w", err)
+		return nil, fmt.Errorf("failed to authenticate: %w", err)
 	}
 	return providerClient, nil
 }
@@ -252,7 +251,7 @@ func tokenCommand(format string, authOptions *gophercloud.AuthOptions, transport
 	}
 	tokenResponse, ok := providerClient.GetAuthResult().(tokens.CreateResult)
 	if !ok {
-		return errors.New("Auth response is not a v3 response")
+		return errors.New("auth response is not a v3 response")
 	}
 
 	switch format {
@@ -281,16 +280,16 @@ func curlCommand(curlArgs []string, authOptions *gophercloud.AuthOptions, transp
 
 	providerClient, err := makeProviderClient(authOptions, transportInfo)
 	if err != nil {
-		return fmt.Errorf("Failed to authenticate: %s", err)
+		return fmt.Errorf("failed to authenticate: %s", err)
 	}
 	tokenResponse, ok := providerClient.GetAuthResult().(tokens.CreateResult)
 	if !ok {
-		return errors.New("Auth response is not a v3 response")
+		return errors.New("auth response is not a v3 response")
 	}
 
 	catalog, err := tokenResponse.ExtractServiceCatalog()
 	if err != nil {
-		return fmt.Errorf("Failed to get catalog from auth response: %s", err)
+		return fmt.Errorf("failed to get catalog from auth response: %s", err)
 	}
 
 	vars := map[string]string{}
