@@ -1,11 +1,13 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"sort"
@@ -24,8 +26,38 @@ import (
 
 var version string = "HEAD"
 
+type transportInfo struct {
+	cert string
+	key  string
+}
+
+func (ti transportInfo) IsConfigured() bool {
+	return ti.cert != "" && ti.key != ""
+}
+
+func (ti transportInfo) InjectIfConfigured(provider *gophercloud.ProviderClient) error {
+	if !ti.IsConfigured() {
+		return nil
+	}
+	fmt.Println("injecting 2FA certs")
+	cert, err := tls.LoadX509KeyPair(ti.cert, ti.key)
+	if err != nil {
+		return fmt.Errorf("failed to load x509 keypair: %w", err)
+	}
+	transport := &http.Transport{}
+	transport.TLSClientConfig = &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	}
+	provider.HTTPClient = http.Client{
+		Transport: transport,
+	}
+	return nil
+}
+
 func main() {
 	var authInfo clientconfig.AuthInfo
+	var transportInfo transportInfo
 	// handling args/flags
 	app := cli.NewApp()
 	app.Version = version
@@ -110,6 +142,20 @@ func main() {
 			Destination: &authInfo.ApplicationCredentialName,
 		},
 		cli.StringFlag{
+			Name:        "cert",
+			Usage:       "2FA cert file path",
+			EnvVar:      "OS_CERT",
+			Destination: &transportInfo.cert,
+			TakesFile:   true,
+		},
+		cli.StringFlag{
+			Name:        "key",
+			Usage:       "2FA key file path",
+			EnvVar:      "OS_KEY",
+			Destination: &transportInfo.key,
+			TakesFile:   true,
+		},
+		cli.StringFlag{
 			Name:  "format, f",
 			Value: "text",
 			Usage: "Format: text, json, curlrc",
@@ -161,7 +207,7 @@ func main() {
 	app.Action = func(c *cli.Context) error {
 		switch format := c.String("format"); format {
 		case "text", "json", "curlrc":
-			return tokenCommand(c.String("format"), authOpts)
+			return tokenCommand(c.String("format"), authOpts, transportInfo)
 		default:
 			return fmt.Errorf("Unknown format given: %s", format)
 		}
@@ -171,7 +217,7 @@ func main() {
 			Name:  "curl",
 			Usage: "use curl with openstack credentials",
 			Action: func(c *cli.Context) error {
-				return curlCommand(c.Args(), authOpts)
+				return curlCommand(c.Args(), authOpts, transportInfo)
 			},
 		},
 	}
@@ -183,10 +229,26 @@ func main() {
 
 }
 
-func tokenCommand(format string, authOptions *gophercloud.AuthOptions) error {
-	providerClient, err := openstack.AuthenticatedClient(*authOptions)
+func makeProviderClient(authOptions *gophercloud.AuthOptions, transportInfo transportInfo) (*gophercloud.ProviderClient, error) {
+	providerClient, err := openstack.NewClient(authOptions.IdentityEndpoint)
 	if err != nil {
-		return fmt.Errorf("Failed to authenticate: %s", err)
+		return nil, fmt.Errorf("Failed to create OpenStack client: %s", err)
+	}
+	err = transportInfo.InjectIfConfigured(providerClient)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to inject 2FA certs into OpenStack client: %w", err)
+	}
+	err = openstack.Authenticate(providerClient, *authOptions)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to authenticate: %w", err)
+	}
+	return providerClient, nil
+}
+
+func tokenCommand(format string, authOptions *gophercloud.AuthOptions, transportInfo transportInfo) error {
+	providerClient, err := makeProviderClient(authOptions, transportInfo)
+	if err != nil {
+		return err
 	}
 	tokenResponse, ok := providerClient.GetAuthResult().(tokens.CreateResult)
 	if !ok {
@@ -211,13 +273,13 @@ func tokenCommand(format string, authOptions *gophercloud.AuthOptions) error {
 	return nil
 }
 
-func curlCommand(curlArgs []string, authOptions *gophercloud.AuthOptions) error {
+func curlCommand(curlArgs []string, authOptions *gophercloud.AuthOptions, transportInfo transportInfo) error {
 	curlPath, err := exec.LookPath("curl")
 	if err != nil {
 		return fmt.Errorf("curl command not found in path: %s", err)
 	}
 
-	providerClient, err := openstack.AuthenticatedClient(*authOptions)
+	providerClient, err := makeProviderClient(authOptions, transportInfo)
 	if err != nil {
 		return fmt.Errorf("Failed to authenticate: %s", err)
 	}
